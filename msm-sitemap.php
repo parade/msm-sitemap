@@ -347,21 +347,22 @@ class Metro_Sitemap {
 	public static function generate_sitemap_for_date( $sitemap_date ) {
 		global $wpdb;
 
-		$sitemap_time = strtotime( $sitemap_date );
-		list( $year, $month, $day ) = explode( '-', $sitemap_date );
+    	$sitemap_time = strtotime( $sitemap_date );
+        list( $year, $month, $day ) = explode( '-', $sitemap_date );
+        $sitemap_name = $sitemap_date;
 
 		$sitemap_name = $sitemap_date;
 		$sitemap_exists = false;
 
-		$sitemap_data = array(
+		$sitemap_data = apply_filters( 'msm_sitemap_sitemap_data', array(
 			'post_name' => $sitemap_name,
 			'post_title' => $sitemap_name,
 			'post_type' => self::SITEMAP_CPT,
 			'post_status' => 'publish',
 			'post_date' => $sitemap_date,
-			);
+		), func_get_args() );
 
-		$sitemap_id = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->posts WHERE post_type = %s AND post_name = %s LIMIT 1", self::SITEMAP_CPT, $sitemap_name ) );
+		$sitemap_id = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->posts WHERE post_type = %s AND post_name = %s LIMIT 1", self::SITEMAP_CPT, $sitemap_data[ 'post_name' ] ) );
 
 		if ( $sitemap_id ) {
 			$sitemap_exists = true;
@@ -379,7 +380,7 @@ class Metro_Sitemap {
 			'post_type' => self::get_supported_post_types(),	
 			'posts_per_page' => apply_filters( 'msm_sitemap_entry_posts_per_page', self::DEFAULT_POSTS_PER_SITEMAP_PAGE ),
 			'no_found_rows' => true,
-		) );
+        ), func_get_args() );
 
 		$query = new WP_Query( $query_args );
 		$post_count = $query->post_count;
@@ -419,7 +420,7 @@ class Metro_Sitemap {
         $xml->appendChild( $root );
         foreach ( $namespaces as $key => $namespace ) {
             //todo: make this more bullet proof
-            if ( false !== strpos( $key, 'xmlns:' ) ) {
+            if ( false !== strpos( $key, 'xmlns:' ) || 'xmlns' === $key ) {
                 $root->setAttributeNS( 'http://www.w3.org/2000/xmlns/' ,$key, $namespace );
             } else if ( false !== strpos( $key, 'xsi:' ) ) {
                 $root->setAttributeNS( 'http://www.w3.org/2001/XMLSchema-instance', 'schemaLocation', $namespace );
@@ -436,7 +437,7 @@ class Metro_Sitemap {
             $url = $xml->createElement( 'url' );
             $root->appendChild( $url );
             $url->appendChild( $xml->createElement( 'loc', get_permalink() ) );
-            $url->appendChild( $xml->createElement( 'lastmod', get_the_modified_date( 'Y-m-d' ) . 'T' . get_the_modified_date( 'H:i:s' ) . 'Z' ) );
+            $url->appendChild( $xml->createElement( 'lastmod', apply_filters( 'msm_sitemap_lastmod', get_the_modified_date( 'Y-m-d' ) . 'T' . get_the_modified_date( 'H:i:s' ) . 'Z' ) ) );
             $url->appendChild( $xml->createElement( 'changefreq', apply_filters( 'msm_sitemap_changefreq', 'monthly' ) ) );
             $url->appendChild( $xml->createElement( 'priority', apply_filters( 'msm_sitemap_priority', '0.7' ) ) );
 
