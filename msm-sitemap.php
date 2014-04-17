@@ -658,7 +658,12 @@ class Metro_Sitemap {
 	/**
 	 * Build XML for output to clean up the template file
 	 */
-	public static function build_xml( $request = array() ) {
+    public static function build_xml( $request = array() ) {
+
+        $cached = apply_filters( 'msm_sitemap_pre_build_xml', false, $request );
+        if ( false !== $cached ) {
+            return $cached;
+        }
 
 		$year = $request['year'];
 		$month = $request['month'];
@@ -674,7 +679,7 @@ class Metro_Sitemap {
             //allow plugins to filter the $xml, default value if false. Return false in case there's nothig actually do given the request
             $xml = apply_filters( 'msm_sitemap_build_xml', $xml, $request );
         }
-		return $xml;
+		return apply_filters( 'msm_sitemap_post_build_xml', $xml, $request );
 	}
 
 	public static function find_valid_days( $year ) {
