@@ -457,13 +457,13 @@ class Metro_Sitemap {
 
 			update_post_meta( $sitemap_id, 'msm_sitemap_xml', $xml->saveXML() );
 			update_post_meta( $sitemap_id, 'msm_indexed_url_count', $url_count );
-			do_action( 'msm_update_sitemap_post', $sitemap_id, $year, $month, $day );
+			do_action( 'msm_update_sitemap_post', $sitemap_id, $year, $month, $day, $options );
 		} else {
 			/* Should no longer hit this */
 			$sitemap_id = wp_insert_post( $sitemap_data );
 			add_post_meta( $sitemap_id, 'msm_sitemap_xml', $xml->saveXML() );
 			add_post_meta( $sitemap_id, 'msm_indexed_url_count', $url_count );
-			do_action( 'msm_insert_sitemap_post', $sitemap_id, $year, $month, $day );
+			do_action( 'msm_insert_sitemap_post', $sitemap_id, $year, $month, $day, $options );
 
 			// Update the total url count
 			$total_url_count += $url_count;
@@ -660,10 +660,7 @@ class Metro_Sitemap {
 	 */
     public static function build_xml( $request = array() ) {
 
-        $cached = apply_filters( 'msm_sitemap_pre_build_xml', false, $request );
-        if ( false !== $cached ) {
-            return $cached;
-        }
+        do_action( 'msm_sitemap_pre_build_xml', $request );
 
 		$year = $request['year'];
 		$month = $request['month'];
