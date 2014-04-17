@@ -344,7 +344,7 @@ class Metro_Sitemap {
 	 * Generate sitemap for a date; this is where XML is rendered.
 	 * @param string $sitemap_date
 	 */
-	public static function generate_sitemap_for_date( $sitemap_date ) {
+	public static function generate_sitemap_for_date( $sitemap_date, $options = array() ) {
 		global $wpdb;
 
     	$sitemap_time = strtotime( $sitemap_date );
@@ -354,15 +354,15 @@ class Metro_Sitemap {
 		$sitemap_name = $sitemap_date;
 		$sitemap_exists = false;
 
-		$sitemap_data = apply_filters( 'msm_sitemap_sitemap_data', array(
+		$sitemap_data = array(
 			'post_name' => $sitemap_name,
 			'post_title' => $sitemap_name,
 			'post_type' => self::SITEMAP_CPT,
 			'post_status' => 'publish',
 			'post_date' => $sitemap_date,
-		), func_get_args() );
+		);
 
-		$sitemap_id = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->posts WHERE post_type = %s AND post_name = %s LIMIT 1", self::SITEMAP_CPT, $sitemap_data[ 'post_name' ] ) );
+		$sitemap_id = apply_filters( 'msm_sitemap_sitemap_id', $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM $wpdb->posts WHERE post_type = %s AND post_name = %s LIMIT 1", self::SITEMAP_CPT, $sitemap_name ) ), $sitemap_date, $options );
 
 		if ( $sitemap_id ) {
 			$sitemap_exists = true;
@@ -380,7 +380,7 @@ class Metro_Sitemap {
 			'post_type' => self::get_supported_post_types(),	
 			'posts_per_page' => apply_filters( 'msm_sitemap_entry_posts_per_page', self::DEFAULT_POSTS_PER_SITEMAP_PAGE ),
 			'no_found_rows' => true,
-        ), func_get_args() );
+        ), $sitemap_date, $options );
 
 		$query = new WP_Query( $query_args );
 		$post_count = $query->post_count;
@@ -402,8 +402,8 @@ class Metro_Sitemap {
 				do_action( 'msm_delete_sitemap_post', $sitemap_id, $year, $month, $day );
 			}
 			return;
-		}
-
+        }
+        
         // SimpleXML doesn't allow us to define namespaces using addAttribute, so we need to specify them in the construction instead.
         // ^ Don't use SimpleXML then, give DOM a try!
 		$namespaces = apply_filters( 'msm_sitemap_namespace', array(
@@ -412,7 +412,7 @@ class Metro_Sitemap {
 			'xmlns:n' => 'http://www.google.com/schemas/sitemap-news/0.9',
 			'xmlns:image' => 'http://www.google.com/schemas/sitemap-image/1.1',
 			'xsi:schemaLocation' => 'http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd',
-		) );
+		), $sitemap_date, $options );
 
         $xml  = new DOMDocument('1.0', 'utf-8');
         $xml->formatOutput = true;
@@ -437,15 +437,15 @@ class Metro_Sitemap {
             $url = $xml->createElement( 'url' );
             $root->appendChild( $url );
             $url->appendChild( $xml->createElement( 'loc', get_permalink() ) );
-            $url->appendChild( $xml->createElement( 'lastmod', apply_filters( 'msm_sitemap_lastmod', get_the_modified_date( 'Y-m-d' ) . 'T' . get_the_modified_date( 'H:i:s' ) . 'Z' ) ) );
+            $url->appendChild( $xml->createElement( 'lastmod', self::get_lastmod_date() ) );
             $url->appendChild( $xml->createElement( 'changefreq', apply_filters( 'msm_sitemap_changefreq', 'monthly' ) ) );
             $url->appendChild( $xml->createElement( 'priority', apply_filters( 'msm_sitemap_priority', '0.7' ) ) );
 
-			apply_filters( 'msm_sitemap_entry', $url, $xml );
+			apply_filters( 'msm_sitemap_entry', $url, $xml, $sitemap_date, $options );
 
 			++$url_count;
 			// TODO: add images to sitemap via <image:image> tag
-		}
+        } /**/
 
 				// Save the sitemap
 		if ( $sitemap_exists ) {
@@ -474,6 +474,25 @@ class Metro_Sitemap {
 
 		wp_reset_postdata();
 	}
+
+    /*
+     * Decide what date to display. WordPress does not update mod date on scheduled publication of a post.
+     * If pub date is more recent than the last mod date, use the pub date. Also, properly format the lastmod value using Z as timezone determinator
+     */
+    private static function get_lastmod_date() {
+        $post = get_post();
+        $modified = $post->post_modified_gmt; //adding Z, thus we need UTC aka GMT
+        $published = $post->post_date_gmt; //adding Z, thus we need UTC aka GMT
+        $mod = new DateTime( $modified );
+        $pub = new DateTime( $published );
+        if ( $mod < $pub ) {
+            //$time = date( 'Y-m-d', $pub->getTimestamp() ) . 'T' . date( 'H:i:s', $pub->getTimestamp() ) . 'Z';
+            $time = gmdate( 'c', $pub->getTimestamp() );
+        } else {
+            $time = gmdate( 'c', $mod->getTimestamp() );
+        }
+        return $time;
+    }
 
 	/**
 	 * Register our CPT
@@ -571,9 +590,10 @@ class Metro_Sitemap {
 		$xml_prefix = '<?xml version="1.0" encoding="utf-8"?>';
 		global $wpdb;
 		// Direct query because we just want dates of the sitemap entries and this is much faster than WP_Query
-		$sitemaps = $wpdb->get_col( $wpdb->prepare( "SELECT post_date FROM $wpdb->posts WHERE post_type = %s ORDER BY post_date DESC LIMIT 10000", Metro_Sitemap::SITEMAP_CPT ) );
+		$sitemaps = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT post_date FROM $wpdb->posts WHERE post_type = %s ORDER BY post_date DESC LIMIT 10000", Metro_Sitemap::SITEMAP_CPT ) );
 
-		$xml = new SimpleXMLElement( $xml_prefix . '<sitemapindex xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>' );
+        $xml = new SimpleXMLElement( $xml_prefix . '<sitemapindex xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>' );
+        $xml = apply_filters( 'msm_sitemap_root_sitemap_xml_before', $xml );
 		foreach ( $sitemaps as $sitemap_date ) {
 			$sitemap_time = strtotime( $sitemap_date );
 			$sitemap_url = add_query_arg(
@@ -587,7 +607,8 @@ class Metro_Sitemap {
 
 			$sitemap = $xml->addChild( 'sitemap' );
 			$sitemap->loc = $sitemap_url; // manually set the child instead of addChild to prevent "unterminated entity reference" warnings due to encoded ampersands http://stackoverflow.com/a/555039/169478
-		}
+        }
+        $xml  = apply_filters( 'msm_sitemap_root_sitemap_xml_after', $xml );
 		return $xml->asXML();
 	}
 
@@ -641,16 +662,18 @@ class Metro_Sitemap {
 
 		$year = $request['year'];
 		$month = $request['month'];
-		$day = $request['day'];
+        $day = $request['day'];
+        $xml = false; //default value to be returned in case request does not match any of desired values
 
-		if ( false === $year && false === $month && false === $day ) {
-			$xml = self::build_root_sitemap_xml();
-		} else if ( $year > 0 && $month > 0 && $day > 0 ) {
-			$xml = self::build_individual_sitemap_xml( $year, $month, $day );
-		} else {
-			/* Invalid options sent */
-			return false;
-		}
+		if ( $year > 0 && $month > 0 && $day > 0 ) {
+            $xml = self::build_individual_sitemap_xml( $year, $month, $day );
+        } else {
+            if ( false === $year && false === $month && false === $day ) {
+                $xml = self::build_root_sitemap_xml();
+            }
+            //allow plugins to filter the $xml, default value if false. Return false in case there's nothig actually do given the request
+            $xml = apply_filters( 'msm_sitemap_build_xml', $xml, $request );
+        }
 		return $xml;
 	}
 
