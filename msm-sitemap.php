@@ -481,15 +481,14 @@ class Metro_Sitemap {
      */
     private static function get_lastmod_date() {
         $post = get_post();
-        $modified = $post->post_modified_gmt; //adding Z, thus we need UTC aka GMT
-        $published = $post->post_date_gmt; //adding Z, thus we need UTC aka GMT
+        $modified = $post->post_modified;
+        $published = $post->post_date;
         $mod = new DateTime( $modified );
         $pub = new DateTime( $published );
         if ( $mod < $pub ) {
-            //$time = date( 'Y-m-d', $pub->getTimestamp() ) . 'T' . date( 'H:i:s', $pub->getTimestamp() ) . 'Z';
-            $time = gmdate( 'c', $pub->getTimestamp() );
+            $time = date( 'c', $pub->getTimestamp() );
         } else {
-            $time = gmdate( 'c', $mod->getTimestamp() );
+            $time = date( 'c', $mod->getTimestamp() );
         }
         return $time;
     }
