@@ -589,8 +589,9 @@ class Metro_Sitemap {
 
 		$xml_prefix = '<?xml version="1.0" encoding="utf-8"?>';
 		global $wpdb;
-		// Direct query because we just want dates of the sitemap entries and this is much faster than WP_Query
-		$sitemaps = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT post_date FROM $wpdb->posts WHERE post_type = %s ORDER BY post_date DESC LIMIT 10000", Metro_Sitemap::SITEMAP_CPT ) );
+        // Direct query because we just want dates of the sitemap entries and this is much faster than WP_Query
+        // todo: abstract the gnews hotfix
+		$sitemaps = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT post_date FROM $wpdb->posts WHERE post_type = %s AND post_name != 'google_news_sitemap' ORDER BY post_date DESC LIMIT 10000", Metro_Sitemap::SITEMAP_CPT ) );
 
         $xml = new SimpleXMLElement( $xml_prefix . '<sitemapindex xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>' );
         $xml = apply_filters( 'msm_sitemap_root_sitemap_xml_before', $xml );
@@ -629,8 +630,12 @@ class Metro_Sitemap {
 
 		$sitemap_query = get_posts( $sitemap_args );
 
-		if ( ! empty( $sitemap_query ) ) {
-			return $sitemap_query[0];
+        if ( ! empty( $sitemap_query ) ) {
+            foreach( $sitemap_query as $post ) {
+                if ( $post->post_name !== 'google_news_sitemap' ) { //todo: this is an hotfix. Find a way how to abstract
+        			return $post;
+                }
+            }
 		}
 
 		return false;
