@@ -407,8 +407,7 @@ class Metro_Sitemap {
         // SimpleXML doesn't allow us to define namespaces using addAttribute, so we need to specify them in the construction instead.
         // ^ Don't use SimpleXML then, give DOM a try!
 		$namespaces = apply_filters( 'msm_sitemap_namespace', array(
-			'xmlns:xsi' => 'http://www.w3.org/2001/XMLSchema-instance',
-			'xmlns' => 'http://www.sitemaps.org/schemas/sitemap/0.9',
+            'xmlns:xsi' => 'http://www.w3.org/2001/XMLSchema-instance',
 			'xmlns:n' => 'http://www.google.com/schemas/sitemap-news/0.9',
 			'xmlns:image' => 'http://www.google.com/schemas/sitemap-image/1.1',
 			'xsi:schemaLocation' => 'http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd',
@@ -416,12 +415,11 @@ class Metro_Sitemap {
 
         $xml  = new DOMDocument('1.0', 'utf-8');
         $xml->formatOutput = true;
-        $root = $xml->createElement( 'urlset' );
+        $root = $xml->createElementNS( 'http://www.sitemaps.org/schemas/sitemap/0.9', 'urlset' );
         $xml->appendChild( $root );
         foreach ( $namespaces as $key => $namespace ) {
-            //todo: make this more bullet proof
-            if ( false !== strpos( $key, 'xmlns:' ) || 'xmlns' === $key ) {
-                $root->setAttributeNS( 'http://www.w3.org/2000/xmlns/' ,$key, $namespace );
+            if ( false !== strpos( $key, 'xmlns:' ) ) {
+                $root->setAttributeNS( 'http://www.w3.org/2000/xmlns/', $key, $namespace );
             } else if ( false !== strpos( $key, 'xsi:' ) ) {
                 $root->setAttributeNS( 'http://www.w3.org/2001/XMLSchema-instance', 'schemaLocation', $namespace );
             }
