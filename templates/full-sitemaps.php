@@ -8,6 +8,20 @@ if ( ! Metro_Sitemap::is_blog_public() ) {
 	);
 }
 
+/**
+ * &amp; Bugfix
+ * Correcting for the html encoded ampersand that comes along with
+ * the fix for "build_xml entity reference" found in the msm-sitemap.php
+ * file on line 609.
+ */
+foreach( $_GET as $key => $value ){
+	if( strpos( $key, 'amp;' ) === 0 ){
+		$new_key = str_replace( 'amp;', '', $key );
+		$_GET[ $new_key ] = $value;
+		unset( $_GET[ $key ] );
+	}
+}
+
 $req_year = ( isset( $_GET['yyyy'] ) ) ? intval( $_GET['yyyy'] ) : false;
 $req_month = ( isset( $_GET['mm'] ) ) ? intval( $_GET['mm'] ) : false;
 $req_day = ( isset( $_GET['dd'] ) ) ? intval( $_GET['dd'] ) : false;
